@@ -3,111 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIR RADAR PRO v9.0 | SATELLITE MODE</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>AIR RADAR v10.0 | FR24 TWIN</title>
     <style>
-        :root { --radar-green: #00ff41; --danger-red: #ff3e3e; --bg-dark: #0a0a0a; }
-        body { margin: 0; background: var(--bg-dark); font-family: 'Segoe UI', monospace; overflow: hidden; }
-        #map { height: 100vh; width: 100%; filter: grayscale(1) brightness(0.5) contrast(1.5) invert(0.05); }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
         
-        /* واجهة الـ HUD المتطورة */
-        .hud-v9 { 
-            position: absolute; top: 15px; left: 15px; z-index: 1000; 
-            padding: 20px; border: 1px solid var(--radar-green); 
-            background: rgba(0, 10, 0, 0.9); 
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
-            clip-path: polygon(0 0, 100% 0, 100% 85%, 85% 100%, 0 100%);
+        /* دمج خريطة FlightRadar في الخلفية */
+        #fr24-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            filter: brightness(0.7) contrast(1.2) hue-rotate(180deg) invert(1); /* فلتر ليلي متناسق مع تصميمك */
         }
 
-        .status-light { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
-        .online { background: var(--radar-green); box-shadow: 0 0 10px var(--radar-green); }
-        .offline { background: var(--danger-red); box-shadow: 0 0 10px var(--danger-red); animation: blink 0.5s infinite; }
+        /* واجهة الـ HUD الخاصة بك فوق الخريطة */
+        .hud-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            padding: 15px;
+            border: 2px solid #0f0;
+            background: rgba(0, 20, 0, 0.8);
+            color: #0f0;
+            font-family: monospace;
+            pointer-events: none; /* لتتمكن من الضغط على الخريطة تحتها */
+        }
 
+        .status-blink { animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0; } }
-
-        .plane-marker {
-            font-size: 28px; color: var(--radar-green);
-            text-shadow: 0 0 10px var(--radar-green);
-            transition: all 1.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-        }
-
-        .data-panel { font-size: 11px; color: #888; margin-top: 10px; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-    <div class="hud-v9">
-        <div style="font-weight: bold; font-size: 22px; color: var(--radar-green);">OS-INTEL v9.0</div>
-        <div class="data-panel">
-            [<span id="st-light" class="status-light offline"></span>] STATUS: <span id="status-text">SCANNING...</span><br>
-            [+] TARGETS: <span id="acft-count" style="color:#fff;">00</span><br>
-            [+] REGION: NORTH AFRICA / ALGERIA
+    <div class="hud-overlay">
+        <div style="font-size: 20px; font-weight: bold;">OS-INTEL v10.0</div>
+        <div style="margin-top: 5px;">
+            MODE: <span style="color: #0ff;">FR24-MIRROR</span><br>
+            SIGNAL: <span class="status-blink">SYNCHRONIZED</span><br>
+            REGION: ALGERIA SECTOR
         </div>
-        <div id="live-data" style="font-size: 9px; margin-top: 10px; color: #444;">LAT: 00.00 | LNG: 00.00</div>
     </div>
 
-    <div id="map"></div>
+    <iframe 
+        id="fr24-frame"
+        src="https://www.flightradar24.com/simple?lat=30.0&lon=3.0&z=5&airports=1&label1=callsign&label2=alt&label3=spd" 
+        allow="geolocation">
+    </iframe>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        var map, flightLayer;
-        const ALGERIA_BOUNDS = { lamin: 18.0, lomin: -9.0, lamax: 38.0, lomax: 12.0 };
-
-        window.onload = function() {
-            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([30.0, 3.0], 5);
-            
-            // خريطة قمر صناعي عالية الدقة
-            L.tileLayer('https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}').addTo(map);
-
-            flightLayer = L.layerGroup().addTo(map);
-
-            map.on('mousemove', (e) => {
-                document.getElementById('live-data').innerText = `LAT: ${e.latlng.lat.toFixed(4)} | LNG: ${e.latlng.lng.toFixed(4)}`;
-            });
-
-            refreshData();
-            setInterval(refreshData, 12000); 
-        };
-
-        async function refreshData() {
-            const stText = document.getElementById('status-text');
-            const stLight = document.getElementById('st-light');
-            const countDisplay = document.getElementById('acft-count');
-
-            try {
-                // تقنية الالتفاف المتعدد (Multi-Proxy) لتجنب "Signal Blocked"
-                const api = `https://opensky-network.org/api/states/all?lamin=${ALGERIA_BOUNDS.lamin}&lomin=${ALGERIA_BOUNDS.lomin}&lamax=${ALGERIA_BOUNDS.lamax}&lomax=${ALGERIA_BOUNDS.lomax}`;
-                const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(api)}`);
-                
-                if(!response.ok) throw new Error();
-                const data = await response.json();
-
-                flightLayer.clearLayers();
-                let count = 0;
-
-                if(data.states) {
-                    data.states.forEach(f => {
-                        L.marker([f[6], f[5]], {
-                            icon: L.divIcon({
-                                className: 'plane-marker',
-                                html: `<div style="transform: rotate(${f[10]}deg);">✈</div>`
-                            })
-                        }).addTo(flightLayer).bindPopup(`<b>CALLSIGN:</b> ${f[1]}<br><b>ALTITUDE:</b> ${Math.round(f[7])}m`);
-                        count++;
-                    });
-                }
-
-                stText.innerText = "SIGNAL LOCKED";
-                stText.style.color = "#00ff41";
-                stLight.className = "status-light online";
-                countDisplay.innerText = count.toString().padStart(2, '0');
-
-            } catch (e) {
-                stText.innerText = "LINK FAILURE";
-                stText.style.color = "#ff3e3e";
-                stLight.className = "status-light offline";
-            }
-        }
-    </script>
 </body>
 </html>
