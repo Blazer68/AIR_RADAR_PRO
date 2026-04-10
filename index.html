@@ -1,61 +1,60 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AIR RADAR PRO v13.0 | GLOBAL SATELLITE</title>
+    <title>AIR RADAR PRO v14.0 | ROUTES & AIRPORTS</title>
     <style>
-        :root { --accent: #ffcf00; --bg: #1a1a1a; } /* لون FlightRadar الشهير */
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: 'Roboto', sans-serif; }
+        :root { --fr-yellow: #ffcf00; --panel-bg: rgba(20, 20, 20, 0.95); }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
-        #radar-frame {
-            width: 100%; height: 100%; border: none;
-            filter: contrast(1.1) saturate(1.1); /* تحسين ألوان القمر الصناعي */
+        #main-radar { width: 100%; height: 100%; border: none; }
+
+        /* واجهة الـ Flight Info الاحترافية */
+        .route-card {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 450px; background: var(--panel-bg);
+            border-radius: 15px; border: 1px solid rgba(255, 207, 0, 0.4);
+            color: white; padding: 20px; z-index: 2000;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
         }
 
-        /* واجهة تحكم علوية احترافية */
-        .top-bar {
-            position: absolute; top: 0; left: 0; right: 0; height: 50px;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            display: flex; align-items: center; padding: 0 15px;
-            border-bottom: 1px solid rgba(255,207,0,0.3); z-index: 1000;
-        }
+        .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .airport-box { text-align: center; flex: 1; }
+        .airport-code { font-size: 28px; font-weight: 900; color: var(--fr-yellow); }
+        .airport-name { font-size: 10px; color: #888; text-transform: uppercase; }
+        .plane-icon-flow { font-size: 20px; color: #555; padding: 0 15px; }
 
-        .logo { color: var(--accent); font-weight: bold; font-size: 18px; letter-spacing: 1px; }
-
-        /* لوحة معلومات الطائرة (HUD) */
-        .info-panel {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px; background: rgba(25, 25, 25, 0.95);
-            border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white; padding: 15px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .data-item { font-size: 11px; color: #aaa; }
-        .data-value { font-size: 14px; color: var(--accent); font-weight: bold; }
-
-        .live-indicator {
-            width: 8px; height: 8px; background: #ff3b30; border-radius: 50%;
-            display: inline-block; margin-right: 5px; animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .live-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
+        .stat-label { font-size: 9px; color: #666; }
+        .stat-value { font-size: 13px; font-weight: bold; color: #eee; }
     </style>
 </head>
 <body>
 
-    <div class="top-bar">
-        <div class="logo"><span class="live-indicator"></span>AIR RADAR PRO <span style="color:#fff; font-size:10px;">v13.0</span></div>
+    <div class="route-card">
+        <div class="route-header">
+            <div class="airport-box">
+                <div class="airport-code">ALG</div>
+                <div class="airport-name">Houari Boumediene</div>
+            </div>
+            <div class="plane-icon-flow">✈</div>
+            <div class="airport-box">
+                <div class="airport-code">ORN</div>
+                <div class="airport-name">Ahmed Ben Bella</div>
+            </div>
         </div>
+        <div class="live-stats">
+            <div><span class="stat-label">ALTITUDE</span><br><span class="stat-value">10,350 m</span></div>
+            <div><span class="stat-label">SPEED</span><br><span class="stat-value">840 km/h</span></div>
+            <div><span class="stat-label">STATUS</span><br><span class="stat-value" style="color:#4cd964;">ON TIME</span></div>
+        </div>
+    </div>
 
     <iframe 
-        id="radar-frame"
-        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&hideSidebar&hideButtons&mapType=satellite&metric=1&enableAirports=1&showLabels=1" 
+        id="main-radar"
+        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&enableAirports=1&showLabels=1&showTracks=1" 
         allow="geolocation">
     </iframe>
 
