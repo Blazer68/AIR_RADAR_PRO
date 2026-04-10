@@ -2,61 +2,58 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AIR RADAR PRO v17.0 | REAL-TIME DATA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIR RADAR PRO v17.5</title>
     <style>
-        :root { --accent: #ffcf00; }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+        :root { --radar-green: #00ff41; --alert-red: #ff0000; --bg-dark: #0a0a0a; }
+        body { background: var(--bg-dark); color: var(--radar-green); font-family: 'Consolas', monospace; margin: 0; overflow: hidden; }
         
-        /* الحاوية الرئيسية */
-        #radar-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
+        /* تأثير النبض عند التنبيه */
+        .alert-active { animation: emergency-blink 0.5s infinite alternate; border: 10px solid var(--alert-red) !important; }
+        @keyframes emergency-blink { from { background: rgba(255, 0, 0, 0); } to { background: rgba(255, 0, 0, 0.2); } }
 
-        /* الرادار الأصلي المعدل برمجياً ليعرض معلوماته هو في الوسط */
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            /* فلتر سينمائي لجعل الخريطة أكثر واقعية */
-            filter: brightness(0.9) contrast(1.1) saturate(1.2);
-        }
+        #radar-container { position: relative; width: 100vw; height: 100vh; border: 2px solid #333; transition: 0.3s; }
+        .radar-line { position: absolute; width: 50%; height: 2px; background: linear-gradient(to right, transparent, var(--radar-green)); top: 50%; left: 50%; transform-origin: left; animation: sweep 4s linear infinite; z-index: 10; }
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* طبقة الـ HUD العلوية للجمالية والاحترافية فقط دون التلاعب بالبيانات */
-        .system-overlay {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            pointer-events: none; /* لا تعيق النقر على الطائرات */
-            border-left: 3px solid var(--accent);
-            padding-left: 15px;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(5px);
-        }
+        /* الدوائر الجغرافية */
+        .circle { position: absolute; border: 1px solid rgba(0, 255, 65, 0.3); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .c100 { width: 400px; height: 400px; }
+        .c150 { width: 600px; height: 600px; }
+        .label-dist { position: absolute; bottom: 5px; right: 50%; font-size: 10px; color: #555; }
 
-        .status-line { color: var(--accent); font-family: monospace; font-size: 14px; font-weight: bold; }
-        .live-dot { height: 8px; width: 8px; background-color: #ff3b30; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
-        
-        @keyframes blink { 50% { opacity: 0; } }
+        /* لوحة البيانات */
+        #info-panel { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border: 1px solid var(--radar-green); z-index: 20; min-width: 250px; }
+        .target-found { color: var(--alert-red); font-weight: bold; }
     </style>
 </head>
-<body>
+<body id="main-body">
 
     <div id="radar-container">
-        <div class="system-overlay">
-            <div class="status-line"><span class="live-dot"></span>LIVE SATELLITE FEED</div>
-            <div style="color: #eee; font-size: 10px;">SECTOR: ALGERIA AIRSPACE</div>
-            <div style="color: var(--accent); font-size: 9px;">UNITS: METRIC (M/KMH)</div>
-        </div>
-
-        <iframe 
-            src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar=0&enableAirports=1" 
-            allow="geolocation">
-        </iframe>
+        <div class="radar-line"></div>
+        <div class="circle c100"><span class="label-dist">100 nm</span></div>
+        <div class="circle c150"><span class="label-dist">150 nm</span></div>
+        <div style="position: absolute; top:50%; left:50%; width:6px; height:6px; background:#fff; border-radius:50%; transform: translate(-50%, -50%);"></div>
     </div>
 
-</body>
-</html>
+    <div id="info-panel">
+        <div>[ SYSTEM STATUS: ACTIVE ]</div>
+        <div id="alert-status">SCANNING SECTOR...</div>
+        <hr border="0" style="border-top: 1px solid #333">
+        <div id="target-data">No targets in proximity</div>
+    </div>
+
+    <audio id="alert-sound" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
+
+    <script>
+        // إحداثيات موقعك المركزية (Biskra)
+        const HOME = { lat: 34.8500, lng: 5.7281 };
+        const ALERT_RADIUS = 100; // ميل بحري (nm)
+
+        // محاكاة دخول طائرة (للاختبار)
+        function simulateAircraft() {
+            // توليد إحداثيات عشوائية تقترب من موقعك
+            const randomLat = HOME.lat + (Math.random() * 2 - 1);
+            const randomLng = HOME.lng + (Math.random() * 2 - 1);
+            checkProximity(randomLat, randomLng, "FL-782");
+        }
