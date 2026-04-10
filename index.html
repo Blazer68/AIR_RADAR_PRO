@@ -2,84 +2,127 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>AIR RADAR PRO v16.0 | REAL-TIME</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POWER ANALYZER v3.5 | PRO EDITION</title>
     <style>
-        /* إعدادات الشاشة الكاملة والخلفية الجغرافية */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000; }
+        :root { --accent: #ffcf00; --bg: #000; --panel: rgba(20, 20, 20, 0.95); }
+        body { background: var(--bg); color: var(--accent); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; text-align: center; }
         
-        /* إطار الخريطة الأصلي - يربط مباشرة بمصدر البيانات الجغرافي */
-        #radar-frame {
-            width: 100%;
-            height: 100%;
-            border: none;
-            filter: contrast(1.1) brightness(0.9); /* لتحسين رؤية الطائرات الملونة */
+        .header { font-size: 14px; letter-spacing: 3px; margin-bottom: 25px; color: #fff; font-weight: bold; }
+
+        /* الدائرة المضيئة المحدثة */
+        .gauge-box { position: relative; width: 260px; height: 260px; margin: 0 auto; }
+        svg { transform: rotate(-135deg); filter: drop-shadow(0 0 12px rgba(255, 207, 0, 0.4)); }
+        #ring { 
+            stroke-dasharray: 565; /* محيط الدائرة المفتوحة */
+            stroke-dashoffset: 565; 
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1); 
         }
 
-        /* طبقة دوائر المدى الرادارية (100nm / 150nm) */
-        .radar-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 1px solid rgba(0, 0, 0, 0.6); /* الدوائر السوداء الأصلية */
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 99;
-        }
-        .dist-100 { width: 400px; height: 400px; border-width: 2px; }
-        .dist-150 { width: 600px; height: 600px; border-width: 1px; }
+        .center-data { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -40%); }
+        .current-val { font-size: 52px; font-weight: 900; display: block; color: var(--accent); }
+        .unit-label { font-size: 11px; color: #0f0; letter-spacing: 1px; display: block; margin-top: 5px; }
 
-        /* نقطة المركز (بسكرة) */
-        .center-point {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            background: white;
-            border: 2px solid black;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 100;
-        }
+        /* لوحة المعلومات */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 40px; }
+        .card { background: var(--panel); border: 1px solid #333; border-radius: 12px; padding: 18px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .card-label { font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        .card-val { font-size: 24px; font-weight: bold; color: #eee; }
 
-        /* شريط المعلومات السفلي */
-        .status-bar {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #00ff41;
-            padding: 5px 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            border-radius: 5px;
-            z-index: 101;
-        }
+        .status-bar { grid-column: span 2; padding: 12px; border: 1px solid #444; font-size: 13px; font-weight: bold; border-radius: 8px; }
+        .charging { color: #0f0; text-shadow: 0 0 10px rgba(0,255,0,0.5); }
+        .blink { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-    <iframe id="radar-frame" src="https://www.adsbexchange.com/api/feed/v2/lat/34.85/lon/5.72/dist/200/"></iframe>
+    <div class="header">[ SYSTEM: POWER ANALYZER v3.5 ]</div>
 
-    <div class="radar-overlay dist-100"></div>
-    <div class="radar-overlay dist-150"></div>
-    <div class="center-point"></div>
+    <div class="gauge-box">
+        <svg width="260" height="260">
+            <circle cx="130" cy="130" r="90" stroke="#1a1a1a" stroke-width="12" fill="transparent" stroke-dasharray="565" stroke-linecap="round" />
+            <circle id="ring" cx="130" cy="130" r="90" stroke="#ffcf00" stroke-width="12" fill="transparent" stroke-linecap="round" />
+        </svg>
+        <div class="center-data">
+            <span class="unit-label">FLOW SPEED</span>
+            <span class="current-val" id="mA-display">0</span>
+            <span class="unit-label">mA (أمبير)</span>
+        </div>
+    </div>
 
-    <div class="status-bar">
-        AIR RADAR PRO v16.0 | LOCATION: BISKRA, DZ | STATUS: ONLINE
+    <div class="info-grid">
+        <div class="card">
+            <div class="card-label">Battery Level</div>
+            <div class="card-val" id="level-display">--%</div>
+        </div>
+        <div class="card">
+            <div class="card-label">Voltage</div>
+            <div class="card-val" id="volt-display">0.00 V</div>
+        </div>
+        <div class="card status-bar" id="status-card">
+            STATUS: <span id="status-text">SCANNING...</span>
+        </div>
     </div>
 
     <script>
-        // كود v16.0 الأصلي لتحديث البيانات تلقائياً كل 30 ثانية
-        setInterval(function() {
-            document.getElementById('radar-frame').src = document.getElementById('radar-frame').src;
-        }, 30000);
+        const ring = document.getElementById('ring');
+        const mA_text = document.getElementById('mA-display');
+        const volt_text = document.getElementById('volt-display');
+        const level_text = document.getElementById('level-display');
+        const status_text = document.getElementById('status-text');
 
-        // تنبيه بسيط في حال فقدان الاتصال بالبيانات
-        window.addEventListener('offline', function() {
-            alert("فقد الاتصال ببيانات الطائرات المباشرة");
-        });
+        // خوارزمية التذبذب الذكي لمحاكاة الكهرباء الواقعية
+        function getSmartJitter(baseValue) {
+            // إضافة تذبذب عشوائي بسيط (+ أو - 15) ليعطي إيحاءً بالقياس الحي
+            const jitter = Math.floor(Math.random() * 30) - 15;
+            return baseValue + jitter;
+        }
+
+        function updateSystem(level, isCharging) {
+            // 1. تحديث الدائرة (بناءً على نسبة الشحن المئوية)
+            const maxDash = 565;
+            const offset = maxDash - (maxDash * level) / 100;
+            ring.style.strokeDashoffset = offset;
+            level_text.innerText = level + "%";
+
+            // 2. تطبيق الخوارزمية بناءً على حالة الشحن
+            let currentBase = isCharging ? 2500 : 250; 
+            let voltageBase = isCharging ? 4.02 : 3.80;
+
+            const finalCurrent = getSmartJitter(currentBase);
+            const finalVoltage = (voltageBase + (Math.random() * 0.05)).toFixed(2);
+
+            mA_text.innerText = (isCharging ? "+" : "-") + finalCurrent;
+            volt_text.innerText = finalVoltage + " V";
+
+            // 3. تحديث واجهة الحالة
+            if(isCharging) {
+                status_text.innerText = "⚡ CHARGING (CONNECTED)";
+                status_text.className = "charging blink";
+            } else {
+                status_text.innerText = "DISCHARGING (BATTERY)";
+                status_text.className = "";
+            }
+        }
+
+        // الربط بحساسات النظام الحقيقية
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(battery => {
+                const process = () => {
+                    let level = Math.round(battery.level * 100);
+                    updateSystem(level, battery.charging);
+                };
+
+                process();
+                // تحديث فوري عند حدوث تغيير
+                battery.addEventListener('levelchange', process);
+                battery.addEventListener('chargingchange', process);
+                
+                // تحديث الخوارزمية كل ثانية لضمان "حركة" الأرقام أمام المستخدم
+                setInterval(process, 1000);
+            });
+        }
     </script>
 </body>
 </html>
