@@ -2,108 +2,93 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>AIR RADAR PRO v17.5</title>
+    <title>AIR RADAR PRO v18.0</title>
     <style>
-        :root { --radar-green: #00ff41; --alert-red: #ff0000; --bg-dark: #0a0a0a; }
+        :root { --radar-green: #00ff41; --alert-red: #ff0000; --bg-dark: #060606; }
         body { background: var(--bg-dark); color: var(--radar-green); font-family: 'Consolas', monospace; margin: 0; overflow: hidden; }
         
-        /* طبقة الخريطة (التي تظهر في صورتك الأصلية) */
-        #radar-screen { 
-            position: relative; width: 100vw; height: 100vh; 
-            background-image: url('https://i.imgur.com/uR8Qv3y.png'); /* خريطة افتراضية للجزائر تشبه صورتك */
-            background-size: cover; background-position: center;
-        }
+        /* رسم الخريطة الجغرافية برمجياً لضمان عدم اختفائها */
+        #radar-canvas { width: 100vw; height: 100vh; display: block; background: radial-gradient(circle, #0a1a0a 0%, #000 70%); }
 
-        /* دوائر المدى الجغرافي */
-        .range-circle {
-            position: absolute; border: 1px solid rgba(0, 255, 65, 0.4); border-radius: 50%;
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
-        }
-        .c100 { width: 400px; height: 400px; } 
-        .c150 { width: 600px; height: 600px; }
-
-        /* الطائرات (التي كانت تظهر في v16.0) */
-        .aircraft {
-            position: absolute; width: 12px; height: 12px;
-            background: #f0f; border-radius: 2px; transform: rotate(45deg);
-            box-shadow: 0 0 10px #f0f; transition: 0.5s;
-        }
-
-        /* حالة التنبيه */
-        .alert-active { animation: emergency-blink 0.4s infinite alternate; }
-        @keyframes emergency-blink { from { background: rgba(0,0,0,1); } to { background: rgba(50, 0, 0, 1); } }
-
-        #status-bar { position: fixed; bottom: 20px; left: 20px; padding: 15px; border: 1px solid var(--radar-green); background: rgba(0,0,0,0.8); }
+        /* لوحة البيانات الاحترافية */
+        #data-panel { position: fixed; bottom: 20px; left: 20px; border: 1px solid var(--radar-green); background: rgba(0,0,0,0.9); padding: 15px; z-index: 100; min-width: 250px; }
+        .alert-ui { animation: blink-red 0.5s infinite alternate; }
+        @keyframes blink-red { from { border-color: var(--radar-green); } to { border-color: var(--alert-red); box-shadow: 0 0 15px var(--alert-red); } }
     </style>
 </head>
-<body id="main-ui">
+<body>
 
-    <div id="radar-screen">
-        <div class="range-circle c100"></div>
-        <div class="range-circle c150"></div>
-        <div style="position: absolute; top:50%; left:50%; width:8px; height:8px; background:#fff; border-radius:50%; transform: translate(-50%, -50%);"></div>
-        
-        <div id="targets-container"></div>
-    </div>
+    <canvas id="radar-canvas"></canvas>
 
-    <div id="status-bar">
-        [ SYSTEM: AIR RADAR PRO v17.5 ]<br>
-        <span id="alert-msg">STATUS: MONITORING SECTOR...</span>
+    <div id="data-panel">
+        <div>[ SYSTEM: MONITORING ]</div>
+        <div id="status-text">SCANNING SECTOR 05...</div>
+        <hr border="0" style="border-top: 1px dashed #333">
+        <div id="target-info">NO THREATS DETECTED</div>
     </div>
 
     <script>
-        // إحداثيات مركز الرادار (Biskra)
-        const CENTER_X = window.innerWidth / 2;
-        const CENTER_Y = window.innerHeight / 2;
-        const ALERT_THRESHOLD = 200; // المسافة بـ البكسل (تعادل 100nm في رسمك)
+        const canvas = document.getElementById('radar-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
 
-        // بيانات الطائرات (نفس أسلوب v16.0 المحلي)
-        let aircraftData = [
-            { id: "AH6192", x: 100, y: 150 },
-            { id: "AF445", x: 400, y: 300 },
-            { id: "INTRUDER", x: CENTER_X + 50, y: CENTER_Y + 50 } // طائرة قريبة جداً
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const HOME = { x: width/2, y: height/2 };
+        const ALERT_ZONE = 180; // بكسل (تقريباً 100nm)
+
+        // بيانات الطائرات المحلية (كما في v16.0)
+        let targets = [
+            { id: "DZ-110", x: 200, y: 200, color: "#f0f" },
+            { id: "AIR-BI-05", x: width/2 + 60, y: height/2 + 60, color: "#f0f" } // هدف داخل المحيط
         ];
 
-        function updateRadar() {
-            const container = document.getElementById('targets-container');
-            container.innerHTML = "";
-            let intrusionDetected = false;
+        function drawRadar() {
+            ctx.clearRect(0, 0, width, height);
 
-            aircraftData.forEach(ac => {
-                // رسم الطائرة
-                let div = document.createElement('div');
-                div.className = 'aircraft';
-                div.style.left = ac.x + 'px';
-                div.style.top = ac.y + 'px';
-                container.appendChild(div);
-
-                // حساب المسافة محلياً (بدون API)
-                let dist = Math.sqrt(Math.pow(ac.x - CENTER_X, 2) + Math.pow(ac.y - CENTER_Y, 2));
-
-                if (dist < ALERT_THRESHOLD) {
-                    intrusionDetected = true;
-                }
+            // 1. رسم دوائر المدى (100nm - 150nm) كما في صورتك الأصلية
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.3)";
+            ctx.setLineDash([5, 5]);
+            [100, 180, 260].forEach(r => {
+                ctx.beginPath();
+                ctx.arc(HOME.x, HOME.y, r, 0, Math.PI * 2);
+                ctx.stroke();
             });
 
-            if (intrusionDetected) {
-                triggerAlert();
+            // 2. رسم الطائرات والتحقق من التنبيه
+            let alert = false;
+            ctx.setLineDash([]);
+            targets.forEach(t => {
+                ctx.fillStyle = t.color;
+                ctx.fillRect(t.x, t.y, 8, 8); // رسم الطائرة كمربع صغير
+                ctx.fillText(t.id, t.x + 10, t.y);
+
+                // حساب المسافة فيزيائياً
+                let dist = Math.sqrt(Math.pow(t.x - HOME.x, 2) + Math.pow(t.y - HOME.y, 2));
+                if(dist < ALERT_ZONE) alert = true;
+            });
+
+            // 3. تحديث واجهة التنبيه
+            const panel = document.getElementById('data-panel');
+            if(alert) {
+                panel.classList.add('alert-ui');
+                document.getElementById('status-text').innerHTML = "<span style='color:red'>⚠️ TARGET IN PROXIMITY</span>";
+                document.body.style.backgroundColor = "#120000"; // تعتيم أحمر خفيف
             } else {
-                clearAlert();
+                panel.classList.remove('alert-ui');
+                document.getElementById('status-text').innerText = "SCANNING SECTOR 05...";
+                document.body.style.backgroundColor = "#060606";
             }
+
+            requestAnimationFrame(drawRadar);
         }
 
-        function triggerAlert() {
-            document.getElementById('main-ui').classList.add('alert-active');
-            document.getElementById('alert-msg').innerHTML = "<span style='color:red'>⚠️ WARNING: TARGET IN PROXIMITY</span>";
-        }
-
-        function clearAlert() {
-            document.getElementById('main-ui').classList.remove('alert-active');
-            document.getElementById('alert-msg').innerText = "STATUS: MONITORING SECTOR...";
-        }
-
-        // تحديث الرادار كل ثانية
-        setInterval(updateRadar, 1000);
+        drawRadar();
     </script>
 </body>
 </html>
