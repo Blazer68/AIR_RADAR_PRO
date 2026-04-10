@@ -3,42 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIR RADAR v11.0 | STEALTH MODE</title>
+    <title>AIR RADAR v12.0 | SATELLITE MODE</title>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
         
-        /* إطار الرادار المفتوح - لا يمكن حجبه */
+        /* إطار الرادار - تم إزالة فلتر الأخضر */
         #radar-frame {
             width: 100%;
             height: 100%;
             border: none;
-            filter: grayscale(1) brightness(0.6) sepia(1) hue-rotate(70deg) saturate(3); /* فلتر الرؤية الليلية الخضراء */
+            /* تم ترك الخريطة بألوانها الطبيعية (قمر صناعي) */
+            filter: brightness(0.8) contrast(1.1); /* تعديل بسيط للوضوح */
         }
 
-        .hud-v11 {
+        /* واجهة الـ HUD الشفافة (ليست خضراء صارخة) */
+        .hud-v12 {
             position: absolute; top: 20px; left: 20px; z-index: 999;
-            padding: 15px; border: 1px solid #0f0;
-            background: rgba(0, 20, 0, 0.85);
+            padding: 15px; border: 1px solid rgba(0, 255, 0, 0.5);
+            background: rgba(0, 10, 0, 0.7); /* خلفية داكنة خفيفة */
             color: #0f0; font-family: 'Courier New', monospace;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
             pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div class="hud-v11">
-        <div style="font-size: 18px; font-weight: bold;">SYSTEM: OS-INTEL v11.0</div>
+    <div class="hud-v12">
+        <div style="font-size: 18px; font-weight: bold;">SYSTEM: OS-INTEL v12.0</div>
         <div style="font-size: 12px; margin-top: 5px;">
-            SIGNAL: <span style="color: #0f0;">ACTIVE (ENCRYPTED)</span><br>
-            TARGET: ALGERIA AIRSPACE<br>
-            <span style="font-size: 10px; color: #555;">BYPASSING FIREWALL... SUCCESS</span>
+            SIGNAL: <span style="color: #0f0;">ACTIVE</span><br>
+            MODE: <span style="color: #0ff;">SATELLITE / METRIC</span><br>
+            TARGET: ALGERIA AIRSPACE
         </div>
     </div>
 
     <iframe 
         id="radar-frame"
-        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&hideSidebar&hideButtons" 
+        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&hideSidebar&hideButtons&mapType=satellite&metric=1&enableAirports=1" 
         allow="geolocation">
     </iframe>
 
