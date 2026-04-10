@@ -3,60 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AIR RADAR PRO v14.0 | ROUTES & AIRPORTS</title>
+    <title>AIR RADAR PRO v15.0 | INTERACTIVE</title>
     <style>
-        :root { --fr-yellow: #ffcf00; --panel-bg: rgba(20, 20, 20, 0.95); }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        :root { --fr-yellow: #ffcf00; --panel-bg: rgba(10, 10, 10, 0.95); }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
         
-        #main-radar { width: 100%; height: 100%; border: none; }
+        /* الحاوية الرئيسية */
+        .app-container { display: flex; width: 100%; height: 100%; }
+        
+        /* منطقة الرادار */
+        #radar-wrapper { flex-grow: 1; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
 
-        /* واجهة الـ Flight Info الاحترافية */
-        .route-card {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 92%; max-width: 450px; background: var(--panel-bg);
-            border-radius: 15px; border: 1px solid rgba(255, 207, 0, 0.4);
-            color: white; padding: 20px; z-index: 2000;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
+        /* زر إظهار/إخفاء القائمة الجانبية */
+        #toggle-sidebar {
+            position: absolute; top: 10px; right: 10px; z-index: 1001;
+            background: var(--fr-yellow); border: none; padding: 10px;
+            cursor: pointer; border-radius: 5px; font-weight: bold;
         }
 
-        .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .airport-box { text-align: center; flex: 1; }
-        .airport-code { font-size: 28px; font-weight: 900; color: var(--fr-yellow); }
-        .airport-name { font-size: 10px; color: #888; text-transform: uppercase; }
-        .plane-icon-flow { font-size: 20px; color: #555; padding: 0 15px; }
+        /* نافذة المعلومات الوسطى (تتفاعل عند الضغط) */
+        .info-card {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 450px; background: var(--panel-bg);
+            border-radius: 15px; border: 1px solid var(--fr-yellow);
+            color: white; padding: 15px; z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            display: none; /* مخفية حتى يتم الضغط على طائرة */
+        }
 
-        .live-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; text-align: center; }
-        .stat-label { font-size: 9px; color: #666; }
-        .stat-value { font-size: 13px; font-weight: bold; color: #eee; }
+        .route-info { display: flex; justify-content: space-between; align-items: center; }
+        .apt-code { font-size: 30px; font-weight: bold; color: var(--fr-yellow); }
+        
+        /* القائمة اليمنى (Sidebar) */
+        #sidebar { 
+            width: 300px; height: 100%; background: #111; 
+            transition: 0.3s; overflow: hidden; flex-shrink: 0;
+        }
+        #sidebar.hidden { width: 0; }
     </style>
 </head>
 <body>
 
-    <div class="route-card">
-        <div class="route-header">
-            <div class="airport-box">
-                <div class="airport-code">ALG</div>
-                <div class="airport-name">Houari Boumediene</div>
+    <div class="app-container">
+        <div id="radar-wrapper">
+            <button id="toggle-sidebar" onclick="toggleMenu()">LIST</button>
+            
+            <iframe id="radar-frame" src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar"></iframe>
+
+            <div id="flightCard" class="info-card">
+                <div class="route-info">
+                    <div style="text-align:left"><span class="apt-code" id="callsign">N/A</span><br><small>CALLSIGN</small></div>
+                    <div style="font-size:20px">✈</div>
+                    <div style="text-align:right"><span class="apt-code" id="alt">0</span><br><small>METERS</small></div>
+                </div>
+                <div style="margin-top:10px; border-top:1px solid #333; padding-top:10px; font-size:12px; display:flex; justify-content:space-around;">
+                    <span>SPEED: <b id="speed" style="color:var(--fr-yellow)">0</b> km/h</span>
+                    <span>TYPE: <b id="type" style="color:var(--fr-yellow)">--</b></span>
+                </div>
             </div>
-            <div class="plane-icon-flow">✈</div>
-            <div class="airport-box">
-                <div class="airport-code">ORN</div>
-                <div class="airport-name">Ahmed Ben Bella</div>
-            </div>
-        </div>
-        <div class="live-stats">
-            <div><span class="stat-label">ALTITUDE</span><br><span class="stat-value">10,350 m</span></div>
-            <div><span class="stat-label">SPEED</span><br><span class="stat-value">840 km/h</span></div>
-            <div><span class="stat-label">STATUS</span><br><span class="stat-value" style="color:#4cd964;">ON TIME</span></div>
         </div>
     </div>
 
-    <iframe 
-        id="main-radar"
-        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&enableAirports=1&showLabels=1&showTracks=1" 
-        allow="geolocation">
-    </iframe>
+    <script>
+        // وظيفة إظهار وإخفاء القائمة اليمنى
+        function toggleMenu() {
+            const frame = document.getElementById('radar-frame');
+            let currentSrc = frame.src;
+            if (currentSrc.includes('hideSidebar')) {
+                frame.src = currentSrc.replace('&hideSidebar', '');
+                document.getElementById('toggle-sidebar').innerText = "HIDE";
+            } else {
+                frame.src = currentSrc + '&hideSidebar';
+                document.getElementById('toggle-sidebar').innerText = "SHOW LIST";
+            }
+        }
 
+        // وظيفة تفعيل النافذة الوسطى عند النقر (محاكاة)
+        // ملاحظة: الرادار في iframe لا يرسل بيانات النقر بسهولة للخارج، 
+        // لكننا أعددنا الواجهة لتستقبل البيانات فور ربطها بـ API.
+        window.addEventListener('message', function(e) {
+            // هنا سيتم استقبال بيانات الطائرة عند الضغط عليها في المستقبل
+            document.getElementById('flightCard').style.display = 'block';
+        });
+
+        // تجربة: اظهر النافذة عند الضغط على أي مكان في الرادار للتجربة
+        document.getElementById('radar-wrapper').onclick = function() {
+            document.getElementById('flightCard').style.display = 'block';
+        };
+    </script>
 </body>
 </html>
