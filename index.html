@@ -1,45 +1,110 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>RADAR NATIVE OS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIR RADAR PRO v7.0</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; background: #000; color: #0f0; font-family: monospace; }
-        #map { height: 100vh; width: 100%; }
-        .hud { position: absolute; top: 10px; left: 10px; z-index: 1000; border: 1px solid #0f0; padding: 10px; background: rgba(0,0,0,0.8); }
+        body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; color: #0f0; }
+        #map { height: 100vh; width: 100%; background: #050505; }
+        
+        /* واجهة الـ HUD المتطورة */
+        .hud { 
+            position: absolute; top: 10px; left: 10px; z-index: 1000; 
+            padding: 15px; border: 1px solid #0f0; 
+            background: rgba(0, 20, 0, 0.9); 
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            pointer-events: none;
+        }
+
+        /* أيقونة الطائرة الاحترافية */
+        .plane-icon {
+            font-size: 24px;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.8s ease-in-out;
+        }
+
+        .status-bar { margin-top: 5px; font-size: 12px; }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
+
     <div class="hud">
-        STATUS: <span id="st">LINKING...</span><br>
-        SYSTEM: NATIVE_APK_V6
+        <div style="font-weight: bold; font-size: 16px;">SATELLITE RADAR v7.0</div>
+        <div class="status-bar">STATUS: <span id="sync-status" class="blink" style="color: #ff0;">INITIALIZING...</span></div>
+        <div id="target-count" style="font-size: 11px; color: #888;">SCANNING ALGERIA SECTOR...</div>
+        <div style="font-size: 10px; margin-top: 5px; color: #0a0;">ENCRYPTION: ACTIVE</div>
     </div>
+
     <div id="map"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        var map = L.map('map', {zoomControl:false}).setView([34.0, 3.0], 6);
-        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}').addTo(map);
-        var flightLayer = L.layerGroup().addTo(map);
+        var map, flightLayer;
 
-        async function getLiveFlights() {
+        window.onload = function() {
+            // إعداد الخريطة على إحداثيات الجزائر
+            map = L.map('map', { zoomControl: false }).setView([34.0, 3.0], 6);
+            
+            // قمر صناعي من جوجل
+            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 22, maxNativeZoom: 19
+            }).addTo(map);
+
+            flightLayer = L.layerGroup().addTo(map);
+
+            // تشغيل محرك الرادار
+            updateRadar();
+            setInterval(updateRadar, 20000); // تحديث كل 20 ثانية
+        };
+
+        async function updateRadar() {
+            const statusLabel = document.getElementById('sync-status');
+            const targetLabel = document.getElementById('target-count');
+
             try {
-                // الاتصال المباشر دون وسيط (يعمل فقط في الـ APK)
-                const res = await fetch('https://opensky-network.org/api/states/all');
-                const data = await res.json();
+                // استخدام بروكسي متطور لتجاوز الحجب
+                const proxy = "https://api.allorigins.win/raw?url=";
+                const targetUrl = encodeURIComponent("https://opensky-network.org/api/states/all");
+                
+                const response = await fetch(proxy + targetUrl);
+                if (!response.ok) throw new Error();
+                
+                const data = await response.json();
                 flightLayer.clearLayers();
+                
+                let count = 0;
                 data.states.forEach(f => {
+                    // تصفية النطاق الجغرافي للجزائر
                     if (f[6] > -2 && f[6] < 12 && f[5] > 19 && f[5] < 38) {
                         L.marker([f[6], f[5]], {
-                            icon: L.divIcon({html: `<div style="color:#0f0;font-size:20px;transform:rotate(${f[10]}deg)">✈</div>`})
-                        }).addTo(flightLayer);
+                            icon: L.divIcon({
+                                className: 'plane-icon',
+                                html: `<div style="transform: rotate(${f[10]}deg);">✈</div>`
+                            })
+                        }).addTo(flightLayer).bindPopup(`<b>FLIGHT:</b> ${f[1]}<br><b>ALT:</b> ${f[7]}m`);
+                        count++;
                     }
                 });
-                document.getElementById('st').innerText = "ONLINE";
-            } catch (e) { document.getElementById('st').innerText = "RETRYING..."; }
+
+                statusLabel.innerText = "SIGNAL LOCKED";
+                statusLabel.style.color = "#0f0";
+                statusLabel.classList.remove('blink');
+                targetLabel.innerText = count + " TARGETS DETECTED";
+
+            } catch (e) {
+                statusLabel.innerText = "SIGNAL LOST";
+                statusLabel.style.color = "#f00";
+                targetLabel.innerText = "RE-ROUTING ENCRYPTION...";
+            }
         }
-        setInterval(getLiveFlights, 10000);
-        getLiveFlights();
     </script>
 </body>
 </html>
