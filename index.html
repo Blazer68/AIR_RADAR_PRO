@@ -3,50 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIR RADAR v10.0 | FR24 TWIN</title>
+    <title>AIR RADAR v11.0 | STEALTH MODE</title>
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
         
-        /* دمج خريطة FlightRadar في الخلفية */
-        #fr24-frame {
+        /* إطار الرادار المفتوح - لا يمكن حجبه */
+        #radar-frame {
             width: 100%;
             height: 100%;
             border: none;
-            filter: brightness(0.7) contrast(1.2) hue-rotate(180deg) invert(1); /* فلتر ليلي متناسق مع تصميمك */
+            filter: grayscale(1) brightness(0.6) sepia(1) hue-rotate(70deg) saturate(3); /* فلتر الرؤية الليلية الخضراء */
         }
 
-        /* واجهة الـ HUD الخاصة بك فوق الخريطة */
-        .hud-overlay {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 9999;
-            padding: 15px;
-            border: 2px solid #0f0;
-            background: rgba(0, 20, 0, 0.8);
-            color: #0f0;
-            font-family: monospace;
-            pointer-events: none; /* لتتمكن من الضغط على الخريطة تحتها */
+        .hud-v11 {
+            position: absolute; top: 20px; left: 20px; z-index: 999;
+            padding: 15px; border: 1px solid #0f0;
+            background: rgba(0, 20, 0, 0.85);
+            color: #0f0; font-family: 'Courier New', monospace;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            pointer-events: none;
         }
-
-        .status-blink { animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
-    <div class="hud-overlay">
-        <div style="font-size: 20px; font-weight: bold;">OS-INTEL v10.0</div>
-        <div style="margin-top: 5px;">
-            MODE: <span style="color: #0ff;">FR24-MIRROR</span><br>
-            SIGNAL: <span class="status-blink">SYNCHRONIZED</span><br>
-            REGION: ALGERIA SECTOR
+    <div class="hud-v11">
+        <div style="font-size: 18px; font-weight: bold;">SYSTEM: OS-INTEL v11.0</div>
+        <div style="font-size: 12px; margin-top: 5px;">
+            SIGNAL: <span style="color: #0f0;">ACTIVE (ENCRYPTED)</span><br>
+            TARGET: ALGERIA AIRSPACE<br>
+            <span style="font-size: 10px; color: #555;">BYPASSING FIREWALL... SUCCESS</span>
         </div>
     </div>
 
     <iframe 
-        id="fr24-frame"
-        src="https://www.flightradar24.com/simple?lat=30.0&lon=3.0&z=5&airports=1&label1=callsign&label2=alt&label3=spd" 
+        id="radar-frame"
+        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&hideSidebar&hideButtons" 
         allow="geolocation">
     </iframe>
 
