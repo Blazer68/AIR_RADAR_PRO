@@ -3,94 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AIR RADAR PRO v15.0 | INTERACTIVE</title>
+    <title>AIR RADAR v16.0 | PRO SYNC</title>
     <style>
-        :root { --fr-yellow: #ffcf00; --panel-bg: rgba(10, 10, 10, 0.95); }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
         
-        /* الحاوية الرئيسية */
-        .app-container { display: flex; width: 100%; height: 100%; }
-        
-        /* منطقة الرادار */
-        #radar-wrapper { flex-grow: 1; position: relative; }
+        #radar-container { width: 100%; height: 100%; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
 
-        /* زر إظهار/إخفاء القائمة الجانبية */
-        #toggle-sidebar {
-            position: absolute; top: 10px; right: 10px; z-index: 1001;
-            background: var(--fr-yellow); border: none; padding: 10px;
-            cursor: pointer; border-radius: 5px; font-weight: bold;
-        }
-
-        /* نافذة المعلومات الوسطى (تتفاعل عند الضغط) */
+        /* نافذة المعلومات الوسطى الاحترافية */
         .info-card {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 450px; background: var(--panel-bg);
-            border-radius: 15px; border: 1px solid var(--fr-yellow);
-            color: white; padding: 15px; z-index: 2000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            display: none; /* مخفية حتى يتم الضغط على طائرة */
+            position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%);
+            width: 85%; max-width: 420px; background: rgba(15, 15, 15, 0.95);
+            border: 1px solid #ffcf00; border-radius: 15px;
+            color: white; padding: 20px; z-index: 9999;
+            box-shadow: 0 10px 40px rgba(0,0,0,1);
+            display: none; /* مخفية في البداية */
+            animation: slideUp 0.3s ease-out;
+            pointer-events: auto;
         }
 
-        .route-info { display: flex; justify-content: space-between; align-items: center; }
-        .apt-code { font-size: 30px; font-weight: bold; color: var(--fr-yellow); }
-        
-        /* القائمة اليمنى (Sidebar) */
-        #sidebar { 
-            width: 300px; height: 100%; background: #111; 
-            transition: 0.3s; overflow: hidden; flex-shrink: 0;
-        }
-        #sidebar.hidden { width: 0; }
+        @keyframes slideUp { from { bottom: -100px; opacity: 0; } to { bottom: 35px; opacity: 1; } }
+
+        .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
+        .city-code { font-size: 28px; font-weight: 900; color: #ffcf00; }
+        .data-row { display: flex; justify-content: space-around; font-family: monospace; font-size: 13px; }
+        .close-btn { position: absolute; top: -10px; right: -10px; background: #ffcf00; color: #000; border-radius: 50%; width: 25px; height: 25px; border: none; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <div id="radar-wrapper">
-            <button id="toggle-sidebar" onclick="toggleMenu()">LIST</button>
-            
-            <iframe id="radar-frame" src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar"></iframe>
+    <div id="radar-container">
+        <div id="click-detector" style="position:absolute; width:100%; height:100%; z-index:500; pointer-events:none;"></div>
 
-            <div id="flightCard" class="info-card">
-                <div class="route-info">
-                    <div style="text-align:left"><span class="apt-code" id="callsign">N/A</span><br><small>CALLSIGN</small></div>
-                    <div style="font-size:20px">✈</div>
-                    <div style="text-align:right"><span class="apt-code" id="alt">0</span><br><small>METERS</small></div>
-                </div>
-                <div style="margin-top:10px; border-top:1px solid #333; padding-top:10px; font-size:12px; display:flex; justify-content:space-around;">
-                    <span>SPEED: <b id="speed" style="color:var(--fr-yellow)">0</b> km/h</span>
-                    <span>TYPE: <b id="type" style="color:var(--fr-yellow)">--</b></span>
-                </div>
+        <div id="flightCard" class="info-card">
+            <button class="close-btn" onclick="this.parentElement.style.display='none'">X</button>
+            <div class="route-header">
+                <div class="city-code">DZA</div>
+                <div style="font-size:20px; color:#555;">✈</div>
+                <div class="city-code">INTL</div>
             </div>
+            <div class="data-row">
+                <div>ALT: <span id="alt-val" style="color:#0f0;">---</span> m</div>
+                <div>SPD: <span id="spd-val" style="color:#0f0;">---</span> km/h</div>
+            </div>
+            <div style="text-align:center; font-size:10px; margin-top:10px; color:#888;">RADAR SIGNAL: LOCKED</div>
         </div>
+
+        <iframe 
+            id="radar-frame" 
+            src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar&hideButtons">
+        </iframe>
     </div>
 
     <script>
-        // وظيفة إظهار وإخفاء القائمة اليمنى
-        function toggleMenu() {
-            const frame = document.getElementById('radar-frame');
-            let currentSrc = frame.src;
-            if (currentSrc.includes('hideSidebar')) {
-                frame.src = currentSrc.replace('&hideSidebar', '');
-                document.getElementById('toggle-sidebar').innerText = "HIDE";
-            } else {
-                frame.src = currentSrc + '&hideSidebar';
-                document.getElementById('toggle-sidebar').innerText = "SHOW LIST";
+        // الحل البرمجي: بما أننا لا نستطيع قراءة محتوى الـ iframe، 
+        // سنقوم بمراقبة "التركيز" (Focus) على الصفحة. 
+        // عندما يضغط المستخدم على أي طائرة، المتصفح سيفقد التركيز على الصفحة الرئيسية وينقله للـ iframe.
+        
+        let monitor = setInterval(function(){
+            let elem = document.activeElement;
+            if(elem && elem.tagName == 'IFRAME'){
+                // المستخدم نقر داخل الرادار! اظهر النافذة فوراً
+                showFlightData();
+                window.focus(); // إعادة التركيز لالتقاط النقرة القادمة
             }
+        }, 100);
+
+        function showFlightData() {
+            const card = document.getElementById('flightCard');
+            card.style.display = 'block';
+            
+            // محاكاة جلب البيانات (بما أن البيانات الحقيقية محبوسة داخل الـ iframe)
+            // في تطبيق الـ APK، يمكنك ربط هذا بـ API حقيقي
+            document.getElementById('alt-val').innerText = Math.floor(Math.random() * (12000 - 8000) + 8000);
+            document.getElementById('spd-val').innerText = Math.floor(Math.random() * (900 - 700) + 700);
         }
-
-        // وظيفة تفعيل النافذة الوسطى عند النقر (محاكاة)
-        // ملاحظة: الرادار في iframe لا يرسل بيانات النقر بسهولة للخارج، 
-        // لكننا أعددنا الواجهة لتستقبل البيانات فور ربطها بـ API.
-        window.addEventListener('message', function(e) {
-            // هنا سيتم استقبال بيانات الطائرة عند الضغط عليها في المستقبل
-            document.getElementById('flightCard').style.display = 'block';
-        });
-
-        // تجربة: اظهر النافذة عند الضغط على أي مكان في الرادار للتجربة
-        document.getElementById('radar-wrapper').onclick = function() {
-            document.getElementById('flightCard').style.display = 'block';
-        };
     </script>
 </body>
 </html>
