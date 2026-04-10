@@ -2,18 +2,28 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <title>AIR RADAR PRO v18.5</title>
+    <title>AIR RADAR PRO v19.0</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --radar-green: #00ff41; --alert-red: #ff0000; --bg: #030a03; }
-        body { background: #000; color: var(--radar-green); font-family: 'Consolas', monospace; margin: 0; overflow: hidden; }
+        :root { --radar-green: #00ff41; --alert-red: #ff0000; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
         
-        canvas { display: block; background: radial-gradient(circle, #0a1a0a 0%, #000 80%); }
+        /* طبقة الخريطة الحقيقية كخلفية */
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* لوحة التنبيه المحدثة */
+        /* طبقة الرادار الشفافة فوق الخريطة */
+        #radar-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none; /* للسماح بالتحكم في الخريطة تحتها */
+        }
+
+        /* لوحة البيانات الاحترافية */
         #ui-panel {
             position: fixed; bottom: 30px; left: 30px;
-            border: 2px solid var(--radar-green); background: rgba(0,10,0,0.9);
-            padding: 15px; width: 280px; z-index: 100;
+            border: 2px solid var(--radar-green); background: rgba(0, 10, 0, 0.8);
+            color: var(--radar-green); padding: 15px; width: 280px; z-index: 100;
+            font-family: 'Consolas', monospace;
         }
         .emergency { border-color: var(--alert-red) !important; box-shadow: 0 0 20px var(--alert-red); }
         .blink { animation: blinker 0.6s infinite alternate; }
@@ -22,95 +32,113 @@
 </head>
 <body>
 
-<canvas id="radar"></canvas>
+<div id="map"></div>
+<canvas id="radar-layer"></canvas>
 
 <div id="ui-panel">
-    <div id="sys-status">[ SYSTEM: MONITORING ]</div>
-    <div id="alert-zone" style="font-weight: bold; margin-top: 5px;">NO THREATS DETECTED</div>
-    <div id="target-count" style="font-size: 12px; color: #555; margin-top: 5px;">Active Targets: 0</div>
+    <div id="sys-status">[ SYSTEM: ACTIVE ]</div>
+    <div id="alert-zone" style="font-weight: bold; margin-top: 5px;">MONITORING AIRSPACE...</div>
+    <div id="target-count" style="font-size: 12px; color: #888; margin-top: 5px;">Active Targets: 0</div>
 </div>
 
 <script>
-    const canvas = document.getElementById('radar');
+    // 1. إعداد الخريطة الجغرافية (مركزها بسكرة كما في صورك)
+    const centerCoords = [34.85, 5.72];
+    const map = L.map('map', {
+        center: centerCoords,
+        zoom: 7,
+        zoomControl: false,
+        attributionControl: false
+    });
+
+    // استخدام خريطة طبوغرافية واضحة (بدون اللون الداكن تحت الرادار)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // 2. إعداد طبقة الرادار (Canvas)
+    const canvas = document.getElementById('radar-layer');
     const ctx = canvas.getContext('2d');
     let width, height, angle = 0;
 
-    function init() {
+    function resize() {
         width = canvas.width = window.innerWidth;
         height = canvas.height = window.innerHeight;
     }
-    window.addEventListener('resize', init);
-    init();
+    window.addEventListener('resize', resize);
+    resize();
 
-    const CENTER = { x: width/2, y: height/2 };
-    
-    // بيانات الطائرات (إضافة تفاصيل الارتفاع كما في صورتك)
+    // أهداف وهمية للمحاكاة (يتم ربطها ببياناتك المحلية)
     let targets = [
-        { id: "DA-110", lat: 150, lng: 200, alt: "35000ft", speed: "450kts" },
-        { id: "FL-903", lat: 40, lng: -40, alt: "12000ft", speed: "210kts" }
+        { id: "DZ-110", x_off: 150, y_off: -100, alt: "35000ft" },
+        { id: "FL-903", x_off: 40, y_off: 50, alt: "12000ft" }
     ];
 
-    function draw() {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.15)"; // تأثير تلاشي الذيل
-        ctx.fillRect(0, 0, width, height);
+    function drawRadar() {
+        ctx.clearRect(0, 0, width, height);
+        const centerX = width / 2;
+        const centerY = height / 2;
 
-        // 1. رسم الدوائر (Grid)
-        ctx.strokeStyle = "rgba(0, 255, 65, 0.2)";
-        ctx.setLineDash([5, 10]);
-        for(let r = 80; r < 400; r += 80) {
+        // رسم الدوائر الرادارية (100nm, 150nm) بلون أخضر شفاف
+        ctx.strokeStyle = "rgba(0, 255, 65, 0.4)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        [100, 200, 300].forEach(r => {
             ctx.beginPath();
-            ctx.arc(CENTER.x, CENTER.y, r, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
             ctx.stroke();
-            ctx.fillStyle = "#222";
-            ctx.fillText((r/2) + "nm", CENTER.x + r + 5, CENTER.y);
-        }
-
-        // 2. رسم خط المسح الدوار (The Sweep)
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(CENTER.x, CENTER.y);
-        ctx.lineTo(CENTER.x + 400 * Math.cos(angle), CENTER.y + 400 * Math.sin(angle));
-        ctx.strokeStyle = "rgba(0, 255, 65, 0.6)";
-        ctx.stroke();
-        angle += 0.02;
-
-        // 3. رسم وتحديث الطائرات
-        let isAlert = false;
-        targets.forEach(t => {
-            let tx = CENTER.x + t.lng;
-            let ty = CENTER.y - t.lat;
-
-            // حساب المسافة
-            let dist = Math.sqrt(Math.pow(t.lng, 2) + Math.pow(t.lat, 2));
-
-            // رسم أيقونة الهدف (المربع كما في الصورة)
-            ctx.fillStyle = (dist < 100) ? "#ff0000" : "#f0f";
-            ctx.fillRect(tx - 4, ty - 4, 8, 8);
-            
-            // إضافة التفاصيل المهمة (المعرف والارتفاع)
-            ctx.fillStyle = "#fff";
-            ctx.font = "10px Monospace";
-            ctx.fillText(`${t.id}`, tx + 10, ty);
-            ctx.fillText(`${t.alt}`, tx + 10, ty + 12);
-
-            if(dist < 100) isAlert = true;
         });
 
-        // 4. تحديث لوحة التحكم
+        // رسم خط المسح الدوار
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        let lineX = centerX + 300 * Math.cos(angle);
+        let lineY = centerY + 300 * Math.sin(angle);
+        
+        let gradient = ctx.createLinearGradient(centerX, centerY, lineX, lineY);
+        gradient.addColorStop(0, "rgba(0, 255, 65, 0)");
+        gradient.addColorStop(1, "rgba(0, 255, 65, 0.8)");
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3;
+        ctx.lineTo(lineX, lineY);
+        ctx.stroke();
+        angle += 0.03;
+
+        // رسم الطائرات والتحقق من التنبيه
+        let alertStatus = false;
+        targets.forEach(t => {
+            let tx = centerX + t.x_off;
+            let ty = centerY + t.y_off;
+            let dist = Math.sqrt(Math.pow(t.x_off, 2) + Math.pow(t.y_off, 2));
+
+            // أيقونة الطائرة (المربع البنفسجي)
+            ctx.fillStyle = (dist < 150) ? "#ff0000" : "#f0f";
+            ctx.fillRect(tx - 4, ty - 4, 8, 8);
+
+            // البيانات النصية بجانب الطائرة
+            ctx.fillStyle = "#000"; // نص أسود ليكون واضحاً فوق الخريطة الفاتحة
+            ctx.font = "bold 11px Arial";
+            ctx.fillText(t.id, tx + 10, ty);
+            ctx.fillText(t.alt, tx + 10, ty + 12);
+
+            if (dist < 150) alertStatus = true;
+        });
+
+        // تحديث لوحة التنبيه
         const panel = document.getElementById('ui-panel');
-        if(isAlert) {
-            panel.className = "emergency";
-            document.getElementById('alert-zone').innerHTML = "<span style='color:red' class='blink'>⚠️ TARGET IN PROXIMITY</span>";
+        if (alertStatus) {
+            panel.classList.add('emergency');
+            document.getElementById('alert-zone').innerHTML = "<span style='color:red' class='blink'>⚠️ INTRUDER IN RANGE</span>";
         } else {
-            panel.className = "";
-            document.getElementById('alert-zone').innerText = "NO THREATS DETECTED";
+            panel.classList.remove('emergency');
+            document.getElementById('alert-zone').innerHTML = "MONITORING AIRSPACE...";
         }
         document.getElementById('target-count').innerText = `Active Targets: ${targets.length}`;
 
-        requestAnimationFrame(draw);
+        requestAnimationFrame(drawRadar);
     }
 
-    draw();
+    drawRadar();
 </script>
 </body>
 </html>
