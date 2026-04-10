@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>RADAR NATIVE OS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; background: #000; color: #0f0; font-family: monospace; }
+        #map { height: 100vh; width: 100%; }
+        .hud { position: absolute; top: 10px; left: 10px; z-index: 1000; border: 1px solid #0f0; padding: 10px; background: rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body>
+    <div class="hud">
+        STATUS: <span id="st">LINKING...</span><br>
+        SYSTEM: NATIVE_APK_V6
+    </div>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map', {zoomControl:false}).setView([34.0, 3.0], 6);
+        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}').addTo(map);
+        var flightLayer = L.layerGroup().addTo(map);
+
+        async function getLiveFlights() {
+            try {
+                // الاتصال المباشر دون وسيط (يعمل فقط في الـ APK)
+                const res = await fetch('https://opensky-network.org/api/states/all');
+                const data = await res.json();
+                flightLayer.clearLayers();
+                data.states.forEach(f => {
+                    if (f[6] > -2 && f[6] < 12 && f[5] > 19 && f[5] < 38) {
+                        L.marker([f[6], f[5]], {
+                            icon: L.divIcon({html: `<div style="color:#0f0;font-size:20px;transform:rotate(${f[10]}deg)">✈</div>`})
+                        }).addTo(flightLayer);
+                    }
+                });
+                document.getElementById('st').innerText = "ONLINE";
+            } catch (e) { document.getElementById('st').innerText = "RETRYING..."; }
+        }
+        setInterval(getLiveFlights, 10000);
+        getLiveFlights();
+    </script>
+</body>
+</html>
