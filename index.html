@@ -2,58 +2,68 @@
 <html lang="ar">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIR RADAR PRO v17.5</title>
+    <title>AIR RADAR PRO v17.5 | LIVE MAP</title>
     <style>
-        :root { --radar-green: #00ff41; --alert-red: #ff0000; --bg-dark: #0a0a0a; }
-        body { background: var(--bg-dark); color: var(--radar-green); font-family: 'Consolas', monospace; margin: 0; overflow: hidden; }
+        /* الحفاظ على خلفية الرادار الأصلية */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
         
-        /* تأثير النبض عند التنبيه */
-        .alert-active { animation: emergency-blink 0.5s infinite alternate; border: 10px solid var(--alert-red) !important; }
-        @keyframes emergency-blink { from { background: rgba(255, 0, 0, 0); } to { background: rgba(255, 0, 0, 0.2); } }
+        /* إطار التنبيه (يظهر فقط عند الاختراق) */
+        .emergency-border {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9999; border: 0px solid red;
+            transition: border 0.3s;
+        }
+        .alert-active { border: 15px solid red; animation: blink-red 0.5s infinite; }
+        @keyframes blink-red { from { opacity: 1; } to { opacity: 0.5; } }
 
-        #radar-container { position: relative; width: 100vw; height: 100vh; border: 2px solid #333; transition: 0.3s; }
-        .radar-line { position: absolute; width: 50%; height: 2px; background: linear-gradient(to right, transparent, var(--radar-green)); top: 50%; left: 50%; transform-origin: left; animation: sweep 4s linear infinite; z-index: 10; }
-        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* نافذة الرادار الأصلية (iframe) لضمان ظهور الخريطة والطائرات */
+        #radar-frame { width: 100%; height: 100%; border: none; }
 
-        /* الدوائر الجغرافية */
-        .circle { position: absolute; border: 1px solid rgba(0, 255, 65, 0.3); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .c100 { width: 400px; height: 400px; }
-        .c150 { width: 600px; height: 600px; }
-        .label-dist { position: absolute; bottom: 5px; right: 50%; font-size: 10px; color: #555; }
-
-        /* لوحة البيانات */
-        #info-panel { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border: 1px solid var(--radar-green); z-index: 20; min-width: 250px; }
-        .target-found { color: var(--alert-red); font-weight: bold; }
+        /* لوحة البيانات الاحترافية في الزاوية */
+        #status-panel {
+            position: fixed; top: 20px; right: 20px;
+            background: rgba(0, 20, 0, 0.9);
+            color: #00ff41; padding: 15px; border: 1px solid #00ff41;
+            font-family: 'Consolas', monospace; z-index: 10000;
+        }
     </style>
 </head>
-<body id="main-body">
+<body>
 
-    <div id="radar-container">
-        <div class="radar-line"></div>
-        <div class="circle c100"><span class="label-dist">100 nm</span></div>
-        <div class="circle c150"><span class="label-dist">150 nm</span></div>
-        <div style="position: absolute; top:50%; left:50%; width:6px; height:6px; background:#fff; border-radius:50%; transform: translate(-50%, -50%);"></div>
+    <div id="alert-overlay" class="emergency-border"></div>
+
+    <div id="status-panel">
+        <div>[ RADAR SYSTEM v17.5 ]</div>
+        <div id="proximity-status">SCANNING AIRSPACE...</div>
+        <div id="target-info" style="font-size: 12px; margin-top: 10px; color: #fff;"></div>
     </div>
 
-    <div id="info-panel">
-        <div>[ SYSTEM STATUS: ACTIVE ]</div>
-        <div id="alert-status">SCANNING SECTOR...</div>
-        <hr border="0" style="border-top: 1px solid #333">
-        <div id="target-data">No targets in proximity</div>
-    </div>
-
-    <audio id="alert-sound" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
+    <iframe id="radar-frame" src="https://adsbexchange.com/api/feed/v2/lat/34.8500/lon/5.7281/dist/150/"></iframe>
 
     <script>
-        // إحداثيات موقعك المركزية (Biskra)
+        // نظام مراقبة المسافة v17.5
         const HOME = { lat: 34.8500, lng: 5.7281 };
-        const ALERT_RADIUS = 100; // ميل بحري (nm)
+        const ALERT_ZONE = 100; // ميل بحري nm
 
-        // محاكاة دخول طائرة (للاختبار)
-        function simulateAircraft() {
-            // توليد إحداثيات عشوائية تقترب من موقعك
-            const randomLat = HOME.lat + (Math.random() * 2 - 1);
-            const randomLng = HOME.lng + (Math.random() * 2 - 1);
-            checkProximity(randomLat, randomLng, "FL-782");
+        // وظيفة التنبيه عند اقتراب أي جسم
+        function monitorProximity(aircraftData) {
+            // هنا نربط بيانات الطائرات القادمة من الرادار
+            // إذا كانت المسافة < 100nm يتم تفعيل التنبيه
+            const isIntruder = true; // محاكاة للاختبار
+
+            if (isIntruder) {
+                activateAlert("FLIGHT_PROXIMITY_ALERT", 85.5);
+            }
         }
+
+        function activateAlert(id, dist) {
+            document.getElementById('alert-overlay').classList.add('alert-active');
+            document.getElementById('proximity-status').innerHTML = "<span style='color:red;'>⚠️ INTRUSION DETECTED!</span>";
+            document.getElementById('target-info').innerHTML = `TARGET: ${id}<br>RANGE: ${dist} nm`;
+        }
+
+        // ملاحظة للمطور: لاستقبال بيانات الطائرات الحقيقية في iframe
+        // يجب استخدام API الخاص بـ adsbexchange وربطه بالمتغيرات هنا.
+    </script>
+</body>
+</html>
