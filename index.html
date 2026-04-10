@@ -3,103 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AIR RADAR PRO v16.1</title>
+    <title>AIR RADAR PRO v17.0 | REAL-TIME DATA</title>
     <style>
-        :root { --accent: #ffcf00; --bg: rgba(10, 10, 10, 0.98); }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
+        :root { --accent: #ffcf00; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
         
-        #radar-frame { width: 100%; height: 100%; border: none; }
-
-        /* نافذة المعلومات الوسطى المطورة */
-        #flight-card {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 88%; max-width: 440px; background: var(--bg);
-            border-radius: 20px; border: 1px solid var(--accent);
-            color: white; padding: 18px; z-index: 9999;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
-            display: none; animation: popUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* الحاوية الرئيسية */
+        #radar-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
 
-        @keyframes popUp { from { transform: translate(-50%, 100px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        /* الرادار الأصلي المعدل برمجياً ليعرض معلوماته هو في الوسط */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            /* فلتر سينمائي لجعل الخريطة أكثر واقعية */
+            filter: brightness(0.9) contrast(1.1) saturate(1.2);
+        }
 
-        .route-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .apt { text-align: center; flex: 1; }
-        .code { font-size: 28px; font-weight: 900; color: var(--accent); letter-spacing: 1px; }
-        .label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 4px; }
-        
-        .plane-path { flex: 1; position: relative; height: 2px; background: #333; margin: 0 15px; }
-        .plane-icon { position: absolute; top: -11px; left: 50%; color: var(--accent); transform: rotate(90deg); }
+        /* طبقة الـ HUD العلوية للجمالية والاحترافية فقط دون التلاعب بالبيانات */
+        .system-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            pointer-events: none; /* لا تعيق النقر على الطائرات */
+            border-left: 3px solid var(--accent);
+            padding-left: 15px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+        }
 
-        .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; border-top: 1px solid #222; padding-top: 15px; }
-        .detail-item { font-size: 12px; }
-        .val { color: var(--accent); font-weight: bold; margin-left: 5px; }
+        .status-line { color: var(--accent); font-family: monospace; font-size: 14px; font-weight: bold; }
+        .live-dot { height: 8px; width: 8px; background-color: #ff3b30; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
         
-        .close-x { position: absolute; top: 10px; right: 15px; color: #444; cursor: pointer; font-size: 20px; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
-    <div id="flight-card">
-        <span class="close-x" onclick="this.parentElement.style.display='none'">×</span>
-        <div class="route-info">
-            <div class="apt">
-                <div class="code" id="callsign-display">LIVE</div>
-                <div class="label">Flight ID</div>
-            </div>
-            <div class="plane-path"><div class="plane-icon">✈</div></div>
-            <div class="apt">
-                <div class="code" id="dest-display">DZA</div>
-                <div class="label">Destination</div>
-            </div>
+    <div id="radar-container">
+        <div class="system-overlay">
+            <div class="status-line"><span class="live-dot"></span>LIVE SATELLITE FEED</div>
+            <div style="color: #eee; font-size: 10px;">SECTOR: ALGERIA AIRSPACE</div>
+            <div style="color: var(--accent); font-size: 9px;">UNITS: METRIC (M/KMH)</div>
         </div>
-        <div class="details-grid">
-            <div class="detail-item">ALTITUDE: <span class="val" id="alt-val">0</span> m</div>
-            <div class="detail-item">SPEED: <span class="val" id="spd-val">0</span> km/h</div>
-        </div>
+
+        <iframe 
+            src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar=0&enableAirports=1" 
+            allow="geolocation">
+        </iframe>
     </div>
 
-    <iframe 
-        id="radar-frame" 
-        src="https://globe.adsbexchange.com/?lat=34.0&lon=3.0&zoom=6&mapType=satellite&metric=1&hideSidebar&hideButtons&showTracks=1">
-    </iframe>
-
-    <script>
-        // نظام "الرصد الذكي" للبيانات
-        // بما أننا لا نملك API مدفوع، سنقوم بعمل "محاكاة ذكية" 
-        // تظهر بيانات مختلفة بناءً على الطائرة المختارة فعلياً
-        
-        let lastFocus = document.activeElement;
-        
-        setInterval(function() {
-            if (document.activeElement.tagName === 'IFRAME' && lastFocus !== document.activeElement) {
-                updateFlightInfo();
-                lastFocus = document.activeElement;
-            }
-            // إعادة تصفير التركيز عند إغلاق النافذة
-            if (document.getElementById('flight-card').style.display === 'none') {
-                window.focus();
-                lastFocus = null;
-            }
-        }, 500);
-
-        function updateFlightInfo() {
-            const card = document.getElementById('flight-card');
-            
-            // مصفوفة مطارات الجزائر لتنويع الوجهات (بدل DZN الثابتة)
-            const algerianAirports = ['ALG', 'ORN', 'CZL', 'AAE', 'BJA', 'HME'];
-            const randomDest = algerianAirports[Math.floor(Math.random() * algerianAirports.length)];
-            
-            // محاكاة رقم الرحلة (Callsign)
-            const callsigns = ['DAH6190', 'DZA112', 'AFR765', 'LBT443'];
-            const randomCall = callsigns[Math.floor(Math.random() * callsigns.length)];
-
-            document.getElementById('callsign-display').innerText = randomCall;
-            document.getElementById('dest-display').innerText = randomDest;
-            document.getElementById('alt-val').innerText = Math.floor(Math.random() * (11500 - 9000) + 9000);
-            document.getElementById('spd-val').innerText = Math.floor(Math.random() * (880 - 750) + 750);
-            
-            card.style.display = 'block';
-        }
-    </script>
 </body>
 </html>
